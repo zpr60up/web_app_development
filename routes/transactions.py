@@ -1,42 +1,70 @@
-from flask import Blueprint, request, redirect, url_for, render_template
+from flask import Blueprint, request, redirect, url_for, render_template, flash
+from models.transaction import Transaction
+from models.category import Category
+from datetime import date
 
 bp = Blueprint('transactions', __name__, url_prefix='/transactions')
 
 @bp.route('/new', methods=['GET'])
 def new():
-    """
-    顯示新增收支紀錄的表單。
-    需提供可用的分類清單給下拉選單使用。
-    """
-    pass
+    categories = Category.get_all()
+    return render_template('transactions/form.html', categories=categories, tx=None, today=date.today().strftime('%Y-%m-%d'))
 
 @bp.route('/new', methods=['POST'])
 def create():
-    """
-    接收新增收支表單資料並寫入資料庫。
-    成功後重導向至首頁儀表板。
-    """
-    pass
+    amount = float(request.form.get('amount', 0))
+    category_id = int(request.form.get('category_id'))
+    date_str = request.form.get('date')
+    note = request.form.get('note', '')
+    
+    cat = Category.get_by_id(category_id)
+    if not cat:
+        flash('分類不存在', 'danger')
+        return redirect(url_for('transactions.new'))
+        
+    Transaction.create({
+        'amount': amount,
+        'type': cat.type,
+        'category_id': category_id,
+        'date': date_str,
+        'note': note
+    })
+    flash('新增成功', 'success')
+    return redirect(url_for('dashboard.index'))
 
 @bp.route('/<int:id>/edit', methods=['GET'])
 def edit(id):
-    """
-    顯示編輯收支紀錄的表單，並帶入該筆紀錄的原始資料。
-    """
-    pass
+    tx = Transaction.get_by_id(id)
+    if not tx:
+        flash('找不到紀錄', 'danger')
+        return redirect(url_for('dashboard.index'))
+    categories = Category.get_all()
+    return render_template('transactions/form.html', categories=categories, tx=tx)
 
 @bp.route('/<int:id>/edit', methods=['POST'])
 def update(id):
-    """
-    接收編輯收支表單資料並更新資料庫中的對應紀錄。
-    成功後重導向至首頁儀表板。
-    """
-    pass
+    amount = float(request.form.get('amount', 0))
+    category_id = int(request.form.get('category_id'))
+    date_str = request.form.get('date')
+    note = request.form.get('note', '')
+    
+    cat = Category.get_by_id(category_id)
+    if not cat:
+        flash('分類不存在', 'danger')
+        return redirect(url_for('transactions.edit', id=id))
+        
+    Transaction.update(id, {
+        'amount': amount,
+        'type': cat.type,
+        'category_id': category_id,
+        'date': date_str,
+        'note': note
+    })
+    flash('更新成功', 'success')
+    return redirect(url_for('dashboard.index'))
 
 @bp.route('/<int:id>/delete', methods=['POST'])
 def delete(id):
-    """
-    刪除指定的收支紀錄。
-    成功後重導向至首頁儀表板。
-    """
-    pass
+    Transaction.delete(id)
+    flash('刪除成功', 'success')
+    return redirect(url_for('dashboard.index'))
